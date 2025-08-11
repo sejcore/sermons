@@ -58,7 +58,7 @@
   </div>
 
 <script>
-const SHEET_CSV_URL = "PASTE_YOUR_PUBLISHED_SHEET_CSV_URL_HERE";
+const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRjwhgey__KaB8L_gWoVufV_OQPILvm_FIXyDJUpPkUzd8VQdyGFfK3UXVh9Pte538bEZo6AyyG7jF_/pub?gid=0&single=true&output=csv";
 const COLS = {
   date: "Date",
   book: "Book",
@@ -167,7 +167,7 @@ $("#modalClose").addEventListener("click", () => {
 });
 
 function loadSheet() {
-  if (!SHEET_CSV_URL || SHEET_CSV_URL.includes("PASTE_YOUR_PUBLISHED_SHEET_CSV_URL_HERE")) {
+  if (!SHEET_CSV_URL || SHEET_CSV_URL.includes("https://docs.google.com/spreadsheets/d/e/2PACX-1vRjwhgey__KaB8L_gWoVufV_OQPILvm_FIXyDJUpPkUzd8VQdyGFfK3UXVh9Pte538bEZo6AyyG7jF_/pub?gid=0&single=true&output=csv")) {
     cardsEl.innerHTML = `<div class='p-4 rounded-xl bg-yellow-50 text-yellow-900'>Configure <code>SHEET_CSV_URL</code> in the HTML to point to your published Google Sheet (CSV).</div>`;
     return;
   }
