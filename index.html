@@ -8,7 +8,6 @@
   <style>
     :root { color-scheme: light dark; }
     html, body { height: 100%; }
-    .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
@@ -59,14 +58,7 @@
 
 <script>
 const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRjwhgey__KaB8L_gWoVufV_OQPILvm_FIXyDJUpPkUzd8VQdyGFfK3UXVh9Pte538bEZo6AyyG7jF_/pub?gid=0&single=true&output=csv";
-const COLS = {
-  date: "Date",
-  book: "Book",
-  title: "Title",
-  passage: "Passage",
-  docurl: "DocURL",
-  body: "Body"
-};
+const COLS = { date: "Date", book: "Book", title: "Title", passage: "Passage", docurl: "DocURL", body: "Body" };
 
 const $ = (sel) => document.querySelector(sel);
 const cardsEl = $("#cards");
@@ -75,9 +67,7 @@ const bookFilter = $("#bookFilter");
 const titleFilter = $("#titleFilter");
 const searchBox = $("#searchBox");
 const countEl = $("#count");
-
-let allRows = [];
-let filteredRows = [];
+let allRows = []; let filteredRows = [];
 
 function toDate(v) { const d = new Date(v); return isNaN(d) ? null : d; }
 function uniqueSorted(values) { return [...new Set(values.filter(Boolean))].sort((a,b) => a.localeCompare(b, undefined, {numeric:true})); }
@@ -98,10 +88,7 @@ function buildFilters(rows) {
 
 function applyFilters() {
   const q = searchBox.value.trim().toLowerCase();
-  const d = dateFilter.value;
-  const b = bookFilter.value;
-  const t = titleFilter.value;
-
+  const d = dateFilter.value; const b = bookFilter.value; const t = titleFilter.value;
   filteredRows = allRows.filter(r => {
     const matchesDate = !d || (r[COLS.date] === d);
     const matchesBook = !b || (r[COLS.book] === b);
@@ -110,7 +97,6 @@ function applyFilters() {
     const matchesSearch = !q || haystack.includes(q);
     return matchesDate && matchesBook && matchesTitle && matchesSearch;
   });
-
   filteredRows.sort((a,b) => (toDate(b[COLS.date])?.getTime()||0) - (toDate(a[COLS.date])?.getTime()||0) || String(a[COLS.title]||"").localeCompare(String(b[COLS.title]||"")));
   renderCards();
 }
@@ -118,10 +104,7 @@ function applyFilters() {
 function renderCards() {
   countEl.textContent = `${filteredRows.length} sermon${filteredRows.length===1?"":"s"} shown`;
   cardsEl.innerHTML = filteredRows.map((r, idx) => {
-    const date = r[COLS.date] || "";
-    const title = r[COLS.title] || "Untitled";
-    const book = r[COLS.book] || "";
-    const passage = r[COLS.passage] || "";
+    const date = r[COLS.date] || ""; const title = r[COLS.title] || "Untitled"; const book = r[COLS.book] || ""; const passage = r[COLS.passage] || "";
     return `
       <article class="group rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden hover:shadow-lg transition-shadow">
         <button onclick="openSermon(${idx})" class="text-left w-full p-4 focus:outline-none">
@@ -138,12 +121,7 @@ function renderCards() {
 
 function openSermon(index) {
   const row = filteredRows[index];
-  const title = row[COLS.title] || "Untitled";
-  const date = row[COLS.date] ? ` — ${row[COLS.date]}` : "";
-  const passage = row[COLS.passage] || "";
-  const doc = row[COLS.docurl] || "";
-  const body = row[COLS.body] || "";
-
+  const title = row[COLS.title] || "Untitled"; const date = row[COLS.date] ? ` — ${row[COLS.date]}` : ""; const passage = row[COLS.passage] || ""; const doc = row[COLS.docurl] || ""; const body = row[COLS.body] || "";
   $("#modalTitle").textContent = `${title}${date}`;
   let inner = "";
   if (doc) {
@@ -155,31 +133,27 @@ function openSermon(index) {
     if (body) inner += `<div class=\"prose prose-neutral max-w-none dark:prose-invert\">${nl2br(escapeHtml(body))}</div>`;
     inner += `</div>`;
   }
-
   $("#modalBody").innerHTML = inner;
-  $("#modal").classList.remove("hidden");
-  $("#modal").classList.add("flex");
+  $("#modal").classList.remove("hidden"); $("#modal").classList.add("flex");
 }
 
-$("#modalClose").addEventListener("click", () => {
-  $("#modal").classList.add("hidden");
-  $("#modal").classList.remove("flex");
-});
+$("#modalClose").addEventListener("click", () => { $("#modal").classList.add("hidden"); $("#modal").classList.remove("flex"); });
 
 function loadSheet() {
-  if (!SHEET_CSV_URL || SHEET_CSV_URL.includes("https://docs.google.com/spreadsheets/d/e/2PACX-1vRjwhgey__KaB8L_gWoVufV_OQPILvm_FIXyDJUpPkUzd8VQdyGFfK3UXVh9Pte538bEZo6AyyG7jF_/pub?gid=0&single=true&output=csv")) {
+  if (!SHEET_CSV_URL) {
     cardsEl.innerHTML = `<div class='p-4 rounded-xl bg-yellow-50 text-yellow-900'>Configure <code>SHEET_CSV_URL</code> in the HTML to point to your published Google Sheet (CSV).</div>`;
     return;
   }
   const bust = `&_=${Date.now()}`;
   Papa.parse(SHEET_CSV_URL + bust, {
-    download: true,
-    header: true,
-    dynamicTyping: false,
+    download: true, header: true, dynamicTyping: false,
     complete: (results) => {
       allRows = (results.data || []).filter(r => r[COLS.title] || r[COLS.date] || r[COLS.book]);
-      buildFilters(allRows);
-      applyFilters();
+      if (!allRows.length) {
+        cardsEl.innerHTML = `<div class='p-4 rounded-xl bg-yellow-50 text-yellow-900'>Your sheet loaded but appears empty or headers don't match. Expected headers: Date, Book, Title, Passage, DocURL, Body.</div>`;
+        return;
+      }
+      buildFilters(allRows); applyFilters();
     },
     error: (err) => {
       cardsEl.innerHTML = `<div class='p-4 rounded-xl bg-red-50 text-red-900'>Failed to load sheet: ${escapeHtml(err?.message || String(err))}</div>`;
