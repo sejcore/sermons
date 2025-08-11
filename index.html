@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root { color-scheme: light; }
-    html, body { height: 100%; margin: 0; color: black !important; }
+    html, body { height: 100%; margin: 0; color: #000; }
     /* Full-bleed background image */
     body {
       background: url('heaven.png') no-repeat center center fixed;
@@ -16,8 +16,14 @@
     .line-clamp-3 {
       display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
     }
-    *, *:before, *:after {
-      color: black !important;
+    /* Make all main text black */
+    label, select, input, button, p, h1, h2, h3, h4, h5, h6 {
+      color: #000;
+    }
+    /* Ensure placeholders are visible */
+    input::placeholder, textarea::placeholder {
+      color: #000;
+      opacity: 0.6;
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
