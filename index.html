@@ -202,11 +202,10 @@ function openSermon(index) {
 
   let inner = "";
   if (doc) {
-    // Prefer the /preview form for Google Docs so it embeds cleanly
     const previewUrl = doc.includes("/preview") ? doc : doc.replace("/edit", "/preview");
-    inner += `<iframe src=\"${previewUrl}\" class=\"w-full h-[70vh]\" loading=\"lazy\"></iframe>`;
+    inner += `<iframe src=\"${previewUrl}\" style=\"min-height:100%; border:0;\" loading=\"lazy\"></iframe>`;
   } else {
-    inner += `<div class=\"p-4 space-y-3\">`;
+    inner += `<div class=\"p-4 space-y-3 max-w-5xl mx-auto\">`;
     if (passage) inner += `<p class=\"text-sm text-neutral-500\">${escapeHtml(passage)}</p>`;
     if (body) inner += `<div class=\"prose prose-neutral max-w-none dark:prose-invert\">${nl2br(escapeHtml(body))}</div>`;
     inner += `</div>`;
