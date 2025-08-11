@@ -9,6 +9,8 @@
     :root { color-scheme: light dark; }
     html, body { height: 100%; }
     .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    /* Make embeds actually use the width */
+    #modalBody iframe { width: 100% !important; height: 100% !important; border: 0; display: block; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
@@ -55,12 +57,14 @@
 
   <!-- Modal -->
   <div id="modal" class="fixed inset-0 hidden items-center justify-center p-4 bg-black/60 z-50">
-    <div class="w-full max-w-4xl bg-white dark:bg-neutral-900 rounded-2xl shadow-xl overflow-hidden">
+    <!-- widened from max-w-4xl -> max-w-7xl so the doc has space -->
+    <div class="w-full max-w-7xl bg-white dark:bg-neutral-900 rounded-2xl shadow-xl overflow-hidden">
       <div class="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
         <h3 id="modalTitle" class="font-semibold text-lg"></h3>
         <button id="modalClose" class="px-2 py-1 rounded-lg border border-neutral-300 dark:border-neutral-700">Close</button>
       </div>
-      <div id="modalBody" class="h-[70vh] overflow-auto"></div>
+      <!-- taller so more text shows -->
+      <div id="modalBody" class="h-[80vh] overflow-auto"></div>
     </div>
   </div>
 
@@ -68,7 +72,6 @@
 // =========================
 // 1) CONFIG
 // =========================
-// Using your provided CSV link. Swap this if you republish to a different sheet/tab.
 const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRjwhgey__KaB8L_gWoVufV_OQPILvm_FIXyDJUpPkUzd8VQdyGFfK3UXVh9Pte538bEZo6AyyG7jF_/pub?gid=0&single=true&output=csv";
 
 // Required columns in the sheet (case-sensitive):
@@ -77,7 +80,7 @@ const COLS = {
   book:   "Book",
   title:  "Title",
   passage:"Passage",
-  docurl: "DocURL",  // Google Docs /preview link (optional)
+  docurl: "DocURL",  // Google Docs link (any form below works)
   body:   "Body"     // Plain text of sermon (optional but recommended for search)
 };
 
@@ -96,29 +99,35 @@ const resetBtn = $("#resetBtn");
 let allRows = [];
 let filteredRows = [];
 
-function toDate(v) {
-  if (!v) return null;
-  const d = new Date(v);
-  return isNaN(d) ? null : d;
-}
-
-function uniqueSorted(values) {
-  return [...new Set(values.filter(Boolean))]
-    .sort((a,b) => a.localeCompare(b, undefined, {numeric:true, sensitivity:"base"}));
-}
-
+function toDate(v) { if (!v) return null; const d = new Date(v); return isNaN(d) ? null : d; }
+function uniqueSorted(values) { return [...new Set(values.filter(Boolean))].sort((a,b) => a.localeCompare(b, undefined, {numeric:true, sensitivity:"base"})); }
 function nl2br(text) { return (text || "").replaceAll("\n", "<br>"); }
-function escapeHtml(str){
-  return String(str).replace(/[&<>\"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[s]));
-}
+function escapeHtml(str){ return String(str).replace(/[&<>\"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[s])); }
+function normalizeRow(r){ const out={}; for (const key of Object.values(COLS)) { const v=r?.[key]; out[key]= typeof v==="string" ? v.trim() : v; } return out; }
 
-function normalizeRow(r){
-  const out = {};
-  for (const key of Object.values(COLS)) {
-    const v = r?.[key];
-    out[key] = typeof v === "string" ? v.trim() : v;
+// Build a good Google Docs embed URL from various input shapes
+function buildDocEmbed(url) {
+  if (!url) return "";
+  const u = url.trim();
+
+  // Case 1: standard doc link: https://docs.google.com/document/d/ID/edit
+  const m = u.match(/https?:\/\/docs\\.google\\.com\\/document\\/d\\/([\\w-]{25,})/);
+  if (m && m[1]) {
+    return `https://docs.google.com/document/d/${m[1]}/preview`;
   }
-  return out;
+
+  // Case 2: already a preview link
+  if (u.includes("/preview")) return u;
+
+  // Case 3: published link .../pub or .../pub?embedded=true
+  if (u.includes("/pub")) {
+    return u.includes("embedded=true") ? u : (u.includes("?") ? `${u}&embedded=true` : `${u}?embedded=true`);
+  }
+
+  // Fallback: try replacing /edit with /preview
+  if (u.includes("/edit")) return u.replace("/edit", "/preview");
+
+  return u;
 }
 
 // ===============
@@ -202,12 +211,13 @@ function openSermon(index) {
 
   let inner = "";
   if (doc) {
-    const previewUrl = doc.includes("/preview") ? doc : doc.replace("/edit", "/preview");
-    inner += `<iframe src=\"${previewUrl}\" style=\"min-height:100%; border:0;\" loading=\"lazy\"></iframe>`;
+    // Build a clean, wide embed (no left publish pane, minimal chrome)
+    const embedUrl = buildDocEmbed(doc);
+    inner += `<div style="width:100%;height:100%;"><iframe src="${embedUrl}" allowfullscreen loading="lazy"></iframe></div>`;
   } else {
-    inner += `<div class=\"p-4 space-y-3 max-w-5xl mx-auto\">`;
-    if (passage) inner += `<p class=\"text-sm text-neutral-500\">${escapeHtml(passage)}</p>`;
-    if (body) inner += `<div class=\"prose prose-neutral max-w-none dark:prose-invert\">${nl2br(escapeHtml(body))}</div>`;
+    inner += `<div class="p-4 space-y-3 max-w-5xl mx-auto">`;
+    if (passage) inner += `<p class="text-sm text-neutral-500">${escapeHtml(passage)}</p>`;
+    if (body) inner += `<div class="prose prose-neutral max-w-none dark:prose-invert">${nl2br(escapeHtml(body))}</div>`;
     inner += `</div>`;
   }
 
