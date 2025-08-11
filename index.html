@@ -8,16 +8,21 @@
   <style>
     :root { color-scheme: light dark; }
     html, body { height: 100%; }
+    .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 <body class="bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
   <div class="max-w-6xl mx-auto p-4 sm:p-6">
-    <header class="mb-6 sm:mb-8">
-      <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">Sermons Archive</h1>
-      <p class="text-neutral-500 mt-2">Filter by date, book, title — or search. Click any sermon to view it. Updating the Google Sheet automatically updates this site.</p>
+    <header class="mb-6 sm:mb-8 flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">Sermons Archive</h1>
+        <p class="text-neutral-500 mt-2">Filter by date, book, title — or search. Click any sermon to view it. Updating the Google Sheet automatically updates this site.</p>
+      </div>
+      <button id="resetBtn" class="hidden sm:inline-flex items-center gap-2 rounded-xl border border-neutral-300 dark:border-neutral-700 px-3 py-2 text-sm">Reset filters</button>
     </header>
 
+    <!-- Controls -->
     <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
       <div>
         <label class="block text-sm font-medium mb-1" for="dateFilter">Date</label>
@@ -33,12 +38,14 @@
       </div>
       <div>
         <label class="block text-sm font-medium mb-1" for="searchBox">Search</label>
-        <input id="searchBox" type="search" placeholder="Search title, passage, book…" class="w-full rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2" />
+        <input id="searchBox" type="search" placeholder="Search title, passage, book, body…" class="w-full rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2" />
       </div>
     </section>
 
+    <!-- Results info -->
     <div id="count" class="text-sm text-neutral-500 mt-3"></div>
 
+    <!-- Sermon cards -->
     <section id="cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"></section>
 
     <footer class="mt-10 text-xs text-neutral-500">
@@ -46,6 +53,7 @@
     </footer>
   </div>
 
+  <!-- Modal -->
   <div id="modal" class="fixed inset-0 hidden items-center justify-center p-4 bg-black/60 z-50">
     <div class="w-full max-w-4xl bg-white dark:bg-neutral-900 rounded-2xl shadow-xl overflow-hidden">
       <div class="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
@@ -57,9 +65,25 @@
   </div>
 
 <script>
+// =========================
+// 1) CONFIG
+// =========================
+// Using your provided CSV link. Swap this if you republish to a different sheet/tab.
 const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRjwhgey__KaB8L_gWoVufV_OQPILvm_FIXyDJUpPkUzd8VQdyGFfK3UXVh9Pte538bEZo6AyyG7jF_/pub?gid=0&single=true&output=csv";
-const COLS = { date: "Date", book: "Book", title: "Title", passage: "Passage", docurl: "DocURL", body: "Body" };
 
+// Required columns in the sheet (case-sensitive):
+const COLS = {
+  date:   "Date",
+  book:   "Book",
+  title:  "Title",
+  passage:"Passage",
+  docurl: "DocURL",  // Google Docs /preview link (optional)
+  body:   "Body"     // Plain text of sermon (optional but recommended for search)
+};
+
+// ===============
+// 2) UTILITIES
+// ===============
 const $ = (sel) => document.querySelector(sel);
 const cardsEl = $("#cards");
 const dateFilter = $("#dateFilter");
@@ -67,53 +91,100 @@ const bookFilter = $("#bookFilter");
 const titleFilter = $("#titleFilter");
 const searchBox = $("#searchBox");
 const countEl = $("#count");
-let allRows = []; let filteredRows = [];
+const resetBtn = $("#resetBtn");
 
-function toDate(v) { const d = new Date(v); return isNaN(d) ? null : d; }
-function uniqueSorted(values) { return [...new Set(values.filter(Boolean))].sort((a,b) => a.localeCompare(b, undefined, {numeric:true})); }
+let allRows = [];
+let filteredRows = [];
+
+function toDate(v) {
+  if (!v) return null;
+  const d = new Date(v);
+  return isNaN(d) ? null : d;
+}
+
+function uniqueSorted(values) {
+  return [...new Set(values.filter(Boolean))]
+    .sort((a,b) => a.localeCompare(b, undefined, {numeric:true, sensitivity:"base"}));
+}
+
 function nl2br(text) { return (text || "").replaceAll("\n", "<br>"); }
-function escapeHtml(str){ return String(str).replace(/[&<>\"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[s])); }
+function escapeHtml(str){
+  return String(str).replace(/[&<>\"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[s]));
+}
 
+function normalizeRow(r){
+  const out = {};
+  for (const key of Object.values(COLS)) {
+    const v = r?.[key];
+    out[key] = typeof v === "string" ? v.trim() : v;
+  }
+  return out;
+}
+
+// ===============
+// 3) FILTERS & RENDERING
+// ===============
 function buildFilters(rows) {
   const byDate = [...new Set(rows.map(r => r[COLS.date]).filter(Boolean))]
     .sort((a,b) => (toDate(b)?.getTime()||0) - (toDate(a)?.getTime()||0));
-  dateFilter.innerHTML = "<option value=''>All dates</option>" + byDate.map(d => `<option>${d}</option>`).join("");
+  dateFilter.innerHTML = "<option value=''>All dates</option>" + byDate.map(d => `<option>${escapeHtml(d)}</option>`).join("");
 
-  const byBook = uniqueSorted(rows.map(r => r[COLS.book]));
-  bookFilter.innerHTML = "<option value=''>All books</option>" + byBook.map(b => `<option>${b}</option>`).join("");
+  const byBook = uniqueSorted(rows.map(r => r[COLS.book]).filter(Boolean));
+  bookFilter.innerHTML = "<option value=''>All books</option>" + byBook.map(b => `<option>${escapeHtml(b)}</option>`).join("");
 
-  const byTitle = uniqueSorted(rows.map(r => r[COLS.title]));
-  titleFilter.innerHTML = "<option value=''>All titles</option>" + byTitle.map(t => `<option>${t}</option>`).join("");
+  const byTitle = uniqueSorted(rows.map(r => r[COLS.title]).filter(Boolean));
+  titleFilter.innerHTML = "<option value=''>All titles</option>" + byTitle.map(t => `<option>${escapeHtml(t)}</option>`).join("");
 }
 
 function applyFilters() {
-  const q = searchBox.value.trim().toLowerCase();
-  const d = dateFilter.value; const b = bookFilter.value; const t = titleFilter.value;
+  const q = (searchBox.value || "").trim().toLowerCase();
+  const d = (dateFilter.value || "").trim();
+  const b = (bookFilter.value || "").trim();
+  const t = (titleFilter.value || "").trim();
+
   filteredRows = allRows.filter(r => {
-    const matchesDate = !d || (r[COLS.date] === d);
-    const matchesBook = !b || (r[COLS.book] === b);
-    const matchesTitle = !t || (r[COLS.title] === t);
-    const haystack = [r[COLS.title], r[COLS.passage], r[COLS.book], r[COLS.body]].filter(Boolean).join(" ").toLowerCase();
+    const date = (r[COLS.date] || "").trim();
+    const book = (r[COLS.book] || "").trim();
+    const title = (r[COLS.title] || "").trim();
+    const passage = (r[COLS.passage] || "").trim();
+    const body = (r[COLS.body] || "").trim();
+
+    const matchesDate  = !d || date === d;
+    const matchesBook  = !b || book === b;
+    const matchesTitle = !t || title === t;
+
+    const haystack = [title, passage, book, body].filter(Boolean).join(" ").toLowerCase();
     const matchesSearch = !q || haystack.includes(q);
+
     return matchesDate && matchesBook && matchesTitle && matchesSearch;
   });
-  filteredRows.sort((a,b) => (toDate(b[COLS.date])?.getTime()||0) - (toDate(a[COLS.date])?.getTime()||0) || String(a[COLS.title]||"").localeCompare(String(b[COLS.title]||"")));
+
+  filteredRows.sort((a,b) => (toDate(b[COLS.date])?.getTime()||0) - (toDate(a[COLS.date])?.getTime()||0)
+    || String(a[COLS.title]||"").localeCompare(String(b[COLS.title]||"")));
+
   renderCards();
 }
 
 function renderCards() {
   countEl.textContent = `${filteredRows.length} sermon${filteredRows.length===1?"":"s"} shown`;
   cardsEl.innerHTML = filteredRows.map((r, idx) => {
-    const date = r[COLS.date] || ""; const title = r[COLS.title] || "Untitled"; const book = r[COLS.book] || ""; const passage = r[COLS.passage] || "";
+    const date = r[COLS.date] || "";
+    const title = r[COLS.title] || "Untitled";
+    const book = r[COLS.book] || "";
+    const passage = r[COLS.passage] || "";
+    const body = r[COLS.body] || "";
+    const excerpt = body ? escapeHtml(body).slice(0, 220) : "";
+
     return `
       <article class="group rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden hover:shadow-lg transition-shadow">
         <button onclick="openSermon(${idx})" class="text-left w-full p-4 focus:outline-none">
           <div class="text-xs text-neutral-500 flex items-center gap-2">
-            <span class="inline-flex items-center rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5">${date}</span>
-            ${book ? `<span>${book}</span>` : ""}
+            <span class="inline-flex items-center rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5">${escapeHtml(date)}</span>
+            ${book ? `<span>${escapeHtml(book)}</span>` : ""}
           </div>
           <h3 class="mt-2 text-lg font-semibold leading-snug">${escapeHtml(title)}</h3>
           ${passage ? `<p class="text-sm text-neutral-600 dark:text-neutral-300 mt-1">${escapeHtml(passage)}</p>` : ""}
+          ${excerpt ? `<p class="text-sm text-neutral-500 mt-2 line-clamp-3">${excerpt}</p>` : ""}
         </button>
       </article>`;
   }).join("");
@@ -121,10 +192,17 @@ function renderCards() {
 
 function openSermon(index) {
   const row = filteredRows[index];
-  const title = row[COLS.title] || "Untitled"; const date = row[COLS.date] ? ` — ${row[COLS.date]}` : ""; const passage = row[COLS.passage] || ""; const doc = row[COLS.docurl] || ""; const body = row[COLS.body] || "";
+  const title = row[COLS.title] || "Untitled";
+  const date = row[COLS.date] ? ` — ${row[COLS.date]}` : "";
+  const passage = row[COLS.passage] || "";
+  const doc = row[COLS.docurl] || "";
+  const body = row[COLS.body] || "";
+
   $("#modalTitle").textContent = `${title}${date}`;
+
   let inner = "";
   if (doc) {
+    // Prefer the /preview form for Google Docs so it embeds cleanly
     const previewUrl = doc.includes("/preview") ? doc : doc.replace("/edit", "/preview");
     inner += `<iframe src=\"${previewUrl}\" class=\"w-full h-[70vh]\" loading=\"lazy\"></iframe>`;
   } else {
@@ -133,27 +211,54 @@ function openSermon(index) {
     if (body) inner += `<div class=\"prose prose-neutral max-w-none dark:prose-invert\">${nl2br(escapeHtml(body))}</div>`;
     inner += `</div>`;
   }
+
   $("#modalBody").innerHTML = inner;
-  $("#modal").classList.remove("hidden"); $("#modal").classList.add("flex");
+  $("#modal").classList.remove("hidden");
+  $("#modal").classList.add("flex");
 }
 
-$("#modalClose").addEventListener("click", () => { $("#modal").classList.add("hidden"); $("#modal").classList.remove("flex"); });
+$("#modalClose").addEventListener("click", () => {
+  $("#modal").classList.add("hidden");
+  $("#modal").classList.remove("flex");
+});
+
+resetBtn.addEventListener("click", () => {
+  [dateFilter, bookFilter, titleFilter, searchBox].forEach(el => el.value = "");
+  applyFilters();
+});
+
+// When Title is chosen, clear other dropdowns so the AND filter doesn't hide results
+titleFilter.addEventListener("input", () => { dateFilter.value = ""; bookFilter.value = ""; applyFilters(); });
+
+[dateFilter, bookFilter, searchBox].forEach(el => el.addEventListener("input", applyFilters));
+
+// ===============
+// 4) LOAD SHEET
+// ===============
+function expectedHeaders(){ return Object.values(COLS).join(", "); }
 
 function loadSheet() {
   if (!SHEET_CSV_URL) {
     cardsEl.innerHTML = `<div class='p-4 rounded-xl bg-yellow-50 text-yellow-900'>Configure <code>SHEET_CSV_URL</code> in the HTML to point to your published Google Sheet (CSV).</div>`;
     return;
   }
-  const bust = `&_=${Date.now()}`;
+  const bust = (SHEET_CSV_URL.includes("?") ? "&" : "?") + `_=${Date.now()}`; // cache-bust so updates appear immediately
   Papa.parse(SHEET_CSV_URL + bust, {
-    download: true, header: true, dynamicTyping: false,
+    download: true,
+    header: true,
+    skipEmptyLines: true,
+    dynamicTyping: false,
     complete: (results) => {
-      allRows = (results.data || []).filter(r => r[COLS.title] || r[COLS.date] || r[COLS.book]);
-      if (!allRows.length) {
-        cardsEl.innerHTML = `<div class='p-4 rounded-xl bg-yellow-50 text-yellow-900'>Your sheet loaded but appears empty or headers don't match. Expected headers: Date, Book, Title, Passage, DocURL, Body.</div>`;
+      const fields = results?.meta?.fields || [];
+      const missing = Object.values(COLS).filter(h => !fields.includes(h));
+      if (missing.length) {
+        cardsEl.innerHTML = `<div class='p-4 rounded-xl bg-yellow-50 text-yellow-900'>Your sheet loaded, but some headers are missing.<br>Expected: <b>${expectedHeaders()}</b><br>Found: <b>${escapeHtml(fields.join(", "))}</b><br>Missing: <b>${escapeHtml(missing.join(", "))}</b></div>`;
         return;
       }
-      buildFilters(allRows); applyFilters();
+      const raw = results.data || [];
+      allRows = raw.map(normalizeRow).filter(r => r[COLS.title] || r[COLS.date] || r[COLS.book]);
+      buildFilters(allRows);
+      applyFilters();
     },
     error: (err) => {
       cardsEl.innerHTML = `<div class='p-4 rounded-xl bg-red-50 text-red-900'>Failed to load sheet: ${escapeHtml(err?.message || String(err))}</div>`;
@@ -161,7 +266,6 @@ function loadSheet() {
   });
 }
 
-[dateFilter, bookFilter, titleFilter, searchBox].forEach(el => el.addEventListener("input", applyFilters));
 loadSheet();
 </script>
 </body>
