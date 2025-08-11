@@ -7,50 +7,55 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root { color-scheme: light dark; }
-    html, body { height: 100%; }
+    html, body { height: 100%; margin: 0; }
+    /* Full-bleed background image */
+    body {
+      background: url('heaven.png') no-repeat center center fixed;
+      background-size: cover; /* fill entire viewport on desktop & mobile */
+    }
     .line-clamp-3 {
       display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
-<body class="bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+<body class="bg-neutral-50/0 text-neutral-900 dark:text-neutral-100">
   <div class="max-w-6xl mx-auto p-4 sm:p-6">
     <header class="mb-6 sm:mb-8 flex items-start justify-between gap-4">
       <div>
         <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">Sermons Archive</h1>
-        <p class="text-neutral-500 mt-2">Filter by date, book, title — or search. Click any sermon to view it. Updating the Google Sheet automatically updates this site.</p>
+        <p class="text-neutral-800/90 dark:text-neutral-200/90 mt-2">Filter by date, book, title — or search. Click any sermon to view it. Updating the Google Sheet automatically updates this site.</p>
       </div>
-      <button id="resetBtn" class="hidden sm:inline-flex items-center gap-2 rounded-xl border border-neutral-300 dark:border-neutral-700 px-3 py-2 text-sm">Reset filters</button>
+      <button id="resetBtn" class="hidden sm:inline-flex items-center gap-2 rounded-xl border border-neutral-300/70 dark:border-neutral-700/70 bg-white/60 dark:bg-neutral-900/60 backdrop-blur px-3 py-2 text-sm">Reset filters</button>
     </header>
 
     <!-- Controls -->
     <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
       <div>
         <label class="block text-sm font-medium mb-1" for="dateFilter">Date</label>
-        <select id="dateFilter" class="w-full rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2"></select>
+        <select id="dateFilter" class="w-full rounded-xl border border-neutral-300/70 dark:border-neutral-700/70 bg-white/80 dark:bg-neutral-900/70 backdrop-blur px-3 py-2"></select>
       </div>
       <div>
         <label class="block text-sm font-medium mb-1" for="bookFilter">Book</label>
-        <select id="bookFilter" class="w-full rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2"></select>
+        <select id="bookFilter" class="w-full rounded-xl border border-neutral-300/70 dark:border-neutral-700/70 bg-white/80 dark:bg-neutral-900/70 backdrop-blur px-3 py-2"></select>
       </div>
       <div class="lg:col-span-2">
         <label class="block text-sm font-medium mb-1" for="titleFilter">Title</label>
-        <select id="titleFilter" class="w-full rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2"></select>
+        <select id="titleFilter" class="w-full rounded-xl border border-neutral-300/70 dark:border-neutral-700/70 bg-white/80 dark:bg-neutral-900/70 backdrop-blur px-3 py-2"></select>
       </div>
       <div>
         <label class="block text-sm font-medium mb-1" for="searchBox">Search</label>
-        <input id="searchBox" type="search" placeholder="Search title, passage, book, body…" class="w-full rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2" />
+        <input id="searchBox" type="search" placeholder="Search title, passage, book, body…" class="w-full rounded-xl border border-neutral-300/70 dark:border-neutral-700/70 bg-white/80 dark:bg-neutral-900/70 backdrop-blur px-3 py-2" />
       </div>
     </section>
 
     <!-- Results info -->
-    <div id="count" class="text-sm text-neutral-500 mt-3"></div>
+    <div id="count" class="text-sm text-neutral-800/90 dark:text-neutral-200/80 mt-3"></div>
 
     <!-- Sermon cards -->
     <section id="cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"></section>
 
-    <footer class="mt-10 text-xs text-neutral-500">
+    <footer class="mt-10 text-xs text-neutral-800/90 dark:text-neutral-200/80">
       <p>Powered by a public Google Sheet. Edit the sheet, republish, and the site updates automatically.</p>
     </footer>
   </div>
@@ -100,7 +105,7 @@ let filteredRows = [];
 function toDate(v) { if (!v) return null; const d = new Date(v); return isNaN(d) ? null : d; }
 function uniqueSorted(values) { return [...new Set(values.filter(Boolean))].sort((a,b) => a.localeCompare(b, undefined, {numeric:true, sensitivity:"base"})); }
 function nl2br(text) { return (text || "").replaceAll("\n", "<br>"); }
-function escapeHtml(str){ return String(str).replace(/[&<>\"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[s])); }
+function escapeHtml(str){ return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[s])); }
 
 function normalizeRow(r){
   const out = {};
@@ -166,15 +171,15 @@ function renderCards() {
     const excerpt = body ? escapeHtml(body).slice(0, 220) : "";
 
     return `
-      <article class="group rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden hover:shadow-lg transition-shadow">
+      <article class="group rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white/85 dark:bg-neutral-900/85 backdrop-blur overflow-hidden hover:shadow-lg transition-shadow">
         <button onclick="openSermon(${idx})" class="text-left w-full p-4 focus:outline-none">
-          <div class="text-xs text-neutral-500 flex items-center gap-2">
-            <span class="inline-flex items-center rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5">${escapeHtml(date)}</span>
+          <div class="text-xs text-neutral-700 dark:text-neutral-300 flex items-center gap-2">
+            <span class="inline-flex items-center rounded-full bg-neutral-100/80 dark:bg-neutral-800/80 px-2 py-0.5">${escapeHtml(date)}</span>
             ${book ? `<span>${escapeHtml(book)}</span>` : ""}
           </div>
           <h3 class="mt-2 text-lg font-semibold leading-snug">${escapeHtml(title)}</h3>
-          ${passage ? `<p class="text-sm text-neutral-600 dark:text-neutral-300 mt-1">${escapeHtml(passage)}</p>` : ""}
-          ${excerpt ? `<p class="text-sm text-neutral-500 mt-2 line-clamp-3">${excerpt}</p>` : ""}
+          ${passage ? `<p class="text-sm text-neutral-700 dark:text-neutral-300 mt-1">${escapeHtml(passage)}</p>` : ""}
+          ${excerpt ? `<p class="text-sm text-neutral-700 dark:text-neutral-300 mt-2 line-clamp-3">${excerpt}</p>` : ""}
         </button>
       </article>`;
   }).join("");
@@ -211,16 +216,6 @@ $("#modalClose").addEventListener("click", () => {
   $("#modal").classList.remove("flex");
 });
 
-resetBtn.addEventListener("click", () => {
-  [dateFilter, bookFilter, titleFilter, searchBox].forEach(el => el.value = "");
-  applyFilters();
-});
-
-// When Title is chosen, clear other dropdowns so the AND filter doesn't hide results
-titleFilter.addEventListener("input", () => { dateFilter.value = ""; bookFilter.value = ""; applyFilters(); });
-
-[dateFilter, bookFilter, searchBox].forEach(el => el.addEventListener("input", applyFilters));
-
 // ===============
 // 4) LOAD SHEET
 // ===============
@@ -247,6 +242,7 @@ function loadSheet() {
       const raw = results.data || [];
       allRows = raw.map(normalizeRow).filter(r => r[COLS.title] || r[COLS.date] || r[COLS.book]);
       buildFilters(allRows);
+      filteredRows = [...allRows];
       applyFilters();
     },
     error: (err) => {
