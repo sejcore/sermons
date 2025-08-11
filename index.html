@@ -16,7 +16,7 @@
     .line-clamp-3 {
       display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
     }
-    /* Make all main text black */
+    /* Make all text black */
     label, select, input, button, p, h1, h2, h3, h4, h5, h6 {
       color: #000;
     }
@@ -24,6 +24,12 @@
     input::placeholder, textarea::placeholder {
       color: #000;
       opacity: 0.6;
+    }
+    /* Transparent white backgrounds for dropdowns and boxes */
+    select, input, textarea {
+      background-color: rgba(255, 255, 255, 0.8);
+      border: 1px solid rgba(0,0,0,0.2);
+      border-radius: 0.5rem;
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
