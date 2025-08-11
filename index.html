@@ -8,7 +8,9 @@
   <style>
     :root { color-scheme: light dark; }
     html, body { height: 100%; }
-    .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .line-clamp-3 {
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
@@ -68,7 +70,6 @@
 // =========================
 // 1) CONFIG
 // =========================
-// Using your provided CSV link. Swap this if you republish to a different sheet/tab.
 const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRjwhgey__KaB8L_gWoVufV_OQPILvm_FIXyDJUpPkUzd8VQdyGFfK3UXVh9Pte538bEZo6AyyG7jF_/pub?gid=0&single=true&output=csv";
 
 // Required columns in the sheet (case-sensitive):
@@ -96,21 +97,10 @@ const resetBtn = $("#resetBtn");
 let allRows = [];
 let filteredRows = [];
 
-function toDate(v) {
-  if (!v) return null;
-  const d = new Date(v);
-  return isNaN(d) ? null : d;
-}
-
-function uniqueSorted(values) {
-  return [...new Set(values.filter(Boolean))]
-    .sort((a,b) => a.localeCompare(b, undefined, {numeric:true, sensitivity:"base"}));
-}
-
+function toDate(v) { if (!v) return null; const d = new Date(v); return isNaN(d) ? null : d; }
+function uniqueSorted(values) { return [...new Set(values.filter(Boolean))].sort((a,b) => a.localeCompare(b, undefined, {numeric:true, sensitivity:"base"})); }
 function nl2br(text) { return (text || "").replaceAll("\n", "<br>"); }
-function escapeHtml(str){
-  return String(str).replace(/[&<>\"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[s]));
-}
+function escapeHtml(str){ return String(str).replace(/[&<>\"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[s])); }
 
 function normalizeRow(r){
   const out = {};
@@ -127,13 +117,13 @@ function normalizeRow(r){
 function buildFilters(rows) {
   const byDate = [...new Set(rows.map(r => r[COLS.date]).filter(Boolean))]
     .sort((a,b) => (toDate(b)?.getTime()||0) - (toDate(a)?.getTime()||0));
-  dateFilter.innerHTML = "<option value=''>All dates</option>" + byDate.map(d => <option>${escapeHtml(d)}</option>).join("");
+  dateFilter.innerHTML = "<option value=''>All dates</option>" + byDate.map(d => `<option>${escapeHtml(d)}</option>`).join("");
 
   const byBook = uniqueSorted(rows.map(r => r[COLS.book]).filter(Boolean));
-  bookFilter.innerHTML = "<option value=''>All books</option>" + byBook.map(b => <option>${escapeHtml(b)}</option>).join("");
+  bookFilter.innerHTML = "<option value=''>All books</option>" + byBook.map(b => `<option>${escapeHtml(b)}</option>`).join("");
 
   const byTitle = uniqueSorted(rows.map(r => r[COLS.title]).filter(Boolean));
-  titleFilter.innerHTML = "<option value=''>All titles</option>" + byTitle.map(t => <option>${escapeHtml(t)}</option>).join("");
+  titleFilter.innerHTML = "<option value=''>All titles</option>" + byTitle.map(t => `<option>${escapeHtml(t)}</option>`).join("");
 }
 
 function applyFilters() {
@@ -166,7 +156,7 @@ function applyFilters() {
 }
 
 function renderCards() {
-  countEl.textContent = ${filteredRows.length} sermon${filteredRows.length===1?"":"s"} shown;
+  countEl.textContent = `${filteredRows.length} sermon${filteredRows.length===1?"":"s"} shown`;
   cardsEl.innerHTML = filteredRows.map((r, idx) => {
     const date = r[COLS.date] || "";
     const title = r[COLS.title] || "Untitled";
@@ -175,41 +165,40 @@ function renderCards() {
     const body = r[COLS.body] || "";
     const excerpt = body ? escapeHtml(body).slice(0, 220) : "";
 
-    return 
+    return `
       <article class="group rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden hover:shadow-lg transition-shadow">
         <button onclick="openSermon(${idx})" class="text-left w-full p-4 focus:outline-none">
           <div class="text-xs text-neutral-500 flex items-center gap-2">
             <span class="inline-flex items-center rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5">${escapeHtml(date)}</span>
-            ${book ? <span>${escapeHtml(book)}</span> : ""}
+            ${book ? `<span>${escapeHtml(book)}</span>` : ""}
           </div>
           <h3 class="mt-2 text-lg font-semibold leading-snug">${escapeHtml(title)}</h3>
-          ${passage ? <p class="text-sm text-neutral-600 dark:text-neutral-300 mt-1">${escapeHtml(passage)}</p> : ""}
-          ${excerpt ? <p class="text-sm text-neutral-500 mt-2 line-clamp-3">${excerpt}</p> : ""}
+          ${passage ? `<p class="text-sm text-neutral-600 dark:text-neutral-300 mt-1">${escapeHtml(passage)}</p>` : ""}
+          ${excerpt ? `<p class="text-sm text-neutral-500 mt-2 line-clamp-3">${excerpt}</p>` : ""}
         </button>
-      </article>;
+      </article>`;
   }).join("");
 }
 
 function openSermon(index) {
   const row = filteredRows[index];
   const title = row[COLS.title] || "Untitled";
-  const date = row[COLS.date] ?  — ${row[COLS.date]} : "";
+  const date = row[COLS.date] ? ` — ${row[COLS.date]}` : "";
   const passage = row[COLS.passage] || "";
   const doc = row[COLS.docurl] || "";
   const body = row[COLS.body] || "";
 
-  $("#modalTitle").textContent = ${title}${date};
+  $("#modalTitle").textContent = `${title}${date}`;
 
   let inner = "";
   if (doc) {
-    // Prefer the /preview form for Google Docs so it embeds cleanly
     const previewUrl = doc.includes("/preview") ? doc : doc.replace("/edit", "/preview");
-    inner += <iframe src=\"${previewUrl}\" class=\"w-full h-[70vh]\" loading=\"lazy\"></iframe>;
+    inner += `<iframe src="${previewUrl}" class="w-full h-[70vh]" loading="lazy"></iframe>`;
   } else {
-    inner += <div class=\"p-4 space-y-3\">;
-    if (passage) inner += <p class=\"text-sm text-neutral-500\">${escapeHtml(passage)}</p>;
-    if (body) inner += <div class=\"prose prose-neutral max-w-none dark:prose-invert\">${nl2br(escapeHtml(body))}</div>;
-    inner += </div>;
+    inner += `<div class="p-4 space-y-3">`;
+    if (passage) inner += `<p class="text-sm text-neutral-500">${escapeHtml(passage)}</p>`;
+    if (body) inner += `<div class="prose prose-neutral max-w-none dark:prose-invert">${nl2br(escapeHtml(body))}</div>`;
+    inner += `</div>`;
   }
 
   $("#modalBody").innerHTML = inner;
@@ -239,10 +228,10 @@ function expectedHeaders(){ return Object.values(COLS).join(", "); }
 
 function loadSheet() {
   if (!SHEET_CSV_URL) {
-    cardsEl.innerHTML = <div class='p-4 rounded-xl bg-yellow-50 text-yellow-900'>Configure <code>SHEET_CSV_URL</code> in the HTML to point to your published Google Sheet (CSV).</div>;
+    cardsEl.innerHTML = `<div class='p-4 rounded-xl bg-yellow-50 text-yellow-900'>Configure <code>SHEET_CSV_URL</code> in the HTML to point to your published Google Sheet (CSV).</div>`;
     return;
   }
-  const bust = (SHEET_CSV_URL.includes("?") ? "&" : "?") + _=${Date.now()}; // cache-bust so updates appear immediately
+  const bust = (SHEET_CSV_URL.includes("?") ? "&" : "?") + `_=${Date.now()}`; // cache-bust
   Papa.parse(SHEET_CSV_URL + bust, {
     download: true,
     header: true,
@@ -252,7 +241,7 @@ function loadSheet() {
       const fields = results?.meta?.fields || [];
       const missing = Object.values(COLS).filter(h => !fields.includes(h));
       if (missing.length) {
-        cardsEl.innerHTML = <div class='p-4 rounded-xl bg-yellow-50 text-yellow-900'>Your sheet loaded, but some headers are missing.<br>Expected: <b>${expectedHeaders()}</b><br>Found: <b>${escapeHtml(fields.join(", "))}</b><br>Missing: <b>${escapeHtml(missing.join(", "))}</b></div>;
+        cardsEl.innerHTML = `<div class='p-4 rounded-xl bg-yellow-50 text-yellow-900'>Your sheet loaded, but some headers are missing.<br>Expected: <b>${expectedHeaders()}</b><br>Found: <b>${escapeHtml(fields.join(", "))}</b><br>Missing: <b>${escapeHtml(missing.join(", "))}</b></div>`;
         return;
       }
       const raw = results.data || [];
@@ -261,7 +250,7 @@ function loadSheet() {
       applyFilters();
     },
     error: (err) => {
-      cardsEl.innerHTML = <div class='p-4 rounded-xl bg-red-50 text-red-900'>Failed to load sheet: ${escapeHtml(err?.message || String(err))}</div>;
+      cardsEl.innerHTML = `<div class='p-4 rounded-xl bg-red-50 text-red-900'>Failed to load sheet: ${escapeHtml(err?.message || String(err))}</div>`;
     }
   });
 }
