@@ -10,7 +10,6 @@
     html, body { height: 100%; }
     .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   </style>
-  <!-- PapaParse for CSV parsing -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 <body class="bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
@@ -20,7 +19,6 @@
       <p class="text-neutral-500 mt-2">Filter by date, book, title — or search. Click any sermon to view it. Updating the Google Sheet automatically updates this site.</p>
     </header>
 
-    <!-- Controls -->
     <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
       <div>
         <label class="block text-sm font-medium mb-1" for="dateFilter">Date</label>
@@ -36,14 +34,12 @@
       </div>
       <div>
         <label class="block text-sm font-medium mb-1" for="searchBox">Search</label>
-        <input id="searchBox" type="search" placeholder="Search title, passage, notes…" class="w-full rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2" />
+        <input id="searchBox" type="search" placeholder="Search title, passage, book…" class="w-full rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2" />
       </div>
     </section>
 
-    <!-- Results info -->
     <div id="count" class="text-sm text-neutral-500 mt-3"></div>
 
-    <!-- Sermon cards -->
     <section id="cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-4"></section>
 
     <footer class="mt-10 text-xs text-neutral-500">
@@ -51,46 +47,27 @@
     </footer>
   </div>
 
-  <!-- Modal -->
   <div id="modal" class="fixed inset-0 hidden items-center justify-center p-4 bg-black/60 z-50">
     <div class="w-full max-w-4xl bg-white dark:bg-neutral-900 rounded-2xl shadow-xl overflow-hidden">
       <div class="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
         <h3 id="modalTitle" class="font-semibold text-lg"></h3>
         <button id="modalClose" class="px-2 py-1 rounded-lg border border-neutral-300 dark:border-neutral-700">Close</button>
       </div>
-      <div id="modalBody" class="h-[70vh] overflow-auto">
-        <!-- Content filled dynamically -->
-      </div>
+      <div id="modalBody" class="h-[70vh] overflow-auto"></div>
     </div>
   </div>
 
 <script>
-// =========================
-// 1) CONFIG — EDIT THESE
-// =========================
-// Publish your Google Sheet to the web (File → Share → Publish to web → pick the specific tab → CSV)
-// Then paste the CSV URL here:
 const SHEET_CSV_URL = "PASTE_YOUR_PUBLISHED_SHEET_CSV_URL_HERE";
-
-// Optional: column names. You can rename them in your sheet if you prefer.
-// Required columns: Date, Book, Title
-// Optional columns: Passage, DocURL, AudioURL, Speaker, Notes, Tags, Body
 const COLS = {
-  date: "Date",      // e.g., 2025-01-05 or 01/05/2025
-  book: "Book",      // e.g., Genesis
-  title: "Title",    // e.g., "Creation and Rest"
-  passage: "Passage",// e.g., "Genesis 2:1–3"
-  docurl: "DocURL",  // e.g., public Google Doc link (use /preview form for best embed)
-  audiourl: "AudioURL", // optional audio link
-  speaker: "Speaker",// optional
-  notes: "Notes",    // short description
-  tags: "Tags",      // comma-separated
-  body: "Body"       // optional raw text (if not using DocURL)
+  date: "Date",
+  book: "Book",
+  title: "Title",
+  passage: "Passage",
+  docurl: "DocURL",
+  body: "Body"
 };
 
-// ===============
-// 2) UTILITIES
-// ===============
 const $ = (sel) => document.querySelector(sel);
 const cardsEl = $("#cards");
 const dateFilter = $("#dateFilter");
@@ -102,31 +79,19 @@ const countEl = $("#count");
 let allRows = [];
 let filteredRows = [];
 
-function toDate(v) {
-  if (!v) return null;
-  const d = new Date(v);
-  return isNaN(d) ? null : d;
-}
-
-function uniqueSorted(values) {
-  return [...new Set(values.filter(Boolean))].sort((a,b) => a.localeCompare(b, undefined, {numeric:true}));
-}
-
-function nl2br(text) {
-  return (text || "").replaceAll("\n", "<br>");
-}
+function toDate(v) { const d = new Date(v); return isNaN(d) ? null : d; }
+function uniqueSorted(values) { return [...new Set(values.filter(Boolean))].sort((a,b) => a.localeCompare(b, undefined, {numeric:true})); }
+function nl2br(text) { return (text || "").replaceAll("\n", "<br>"); }
+function escapeHtml(str){ return String(str).replace(/[&<>\"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[s])); }
 
 function buildFilters(rows) {
-  // Dates as exact strings (keep input order newest→oldest)
   const byDate = [...new Set(rows.map(r => r[COLS.date]).filter(Boolean))]
     .sort((a,b) => (toDate(b)?.getTime()||0) - (toDate(a)?.getTime()||0));
   dateFilter.innerHTML = "<option value=''>All dates</option>" + byDate.map(d => `<option>${d}</option>`).join("");
 
-  // Book
   const byBook = uniqueSorted(rows.map(r => r[COLS.book]));
   bookFilter.innerHTML = "<option value=''>All books</option>" + byBook.map(b => `<option>${b}</option>`).join("");
 
-  // Titles
   const byTitle = uniqueSorted(rows.map(r => r[COLS.title]));
   titleFilter.innerHTML = "<option value=''>All titles</option>" + byTitle.map(t => `<option>${t}</option>`).join("");
 }
@@ -141,18 +106,12 @@ function applyFilters() {
     const matchesDate = !d || (r[COLS.date] === d);
     const matchesBook = !b || (r[COLS.book] === b);
     const matchesTitle = !t || (r[COLS.title] === t);
-
-    const haystack = [r[COLS.title], r[COLS.passage], r[COLS.book], r[COLS.notes], r[COLS.tags], r[COLS.body]]
-      .filter(Boolean).join(" \u2003 ").toLowerCase();
+    const haystack = [r[COLS.title], r[COLS.passage], r[COLS.book], r[COLS.body]].filter(Boolean).join(" ").toLowerCase();
     const matchesSearch = !q || haystack.includes(q);
-
     return matchesDate && matchesBook && matchesTitle && matchesSearch;
   });
 
-  // Sort newest first by date, then by title
-  filteredRows.sort((a,b) => (toDate(b[COLS.date])?.getTime()||0) - (toDate(a[COLS.date])?.getTime()||0)
-    || String(a[COLS.title]||"").localeCompare(String(b[COLS.title]||"")));
-
+  filteredRows.sort((a,b) => (toDate(b[COLS.date])?.getTime()||0) - (toDate(a[COLS.date])?.getTime()||0) || String(a[COLS.title]||"").localeCompare(String(b[COLS.title]||"")));
   renderCards();
 }
 
@@ -163,8 +122,6 @@ function renderCards() {
     const title = r[COLS.title] || "Untitled";
     const book = r[COLS.book] || "";
     const passage = r[COLS.passage] || "";
-    const notes = r[COLS.notes] || r[COLS.body] || "";
-
     return `
       <article class="group rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden hover:shadow-lg transition-shadow">
         <button onclick="openSermon(${idx})" class="text-left w-full p-4 focus:outline-none">
@@ -174,14 +131,9 @@ function renderCards() {
           </div>
           <h3 class="mt-2 text-lg font-semibold leading-snug">${escapeHtml(title)}</h3>
           ${passage ? `<p class="text-sm text-neutral-600 dark:text-neutral-300 mt-1">${escapeHtml(passage)}</p>` : ""}
-          ${notes ? `<p class="text-sm text-neutral-500 mt-2 line-clamp-3">${escapeHtml(String(notes)).slice(0,220)}</p>` : ""}
         </button>
       </article>`;
   }).join("");
-}
-
-function escapeHtml(str){
-  return String(str).replace(/[&<>\"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[s]));
 }
 
 function openSermon(index) {
@@ -190,17 +142,11 @@ function openSermon(index) {
   const date = row[COLS.date] ? ` — ${row[COLS.date]}` : "";
   const passage = row[COLS.passage] || "";
   const doc = row[COLS.docurl] || "";
-  const audio = row[COLS.audiourl] || "";
-  const body = row[COLS.body] || row[COLS.notes] || "";
+  const body = row[COLS.body] || "";
 
   $("#modalTitle").textContent = `${title}${date}`;
-
   let inner = "";
-  if (audio) {
-    inner += `<div class=\"p-4 border-b border-neutral-200 dark:border-neutral-800\"><audio controls class=\"w-full\"><source src=\"${encodeURI(audio)}\"></audio></div>`;
-  }
   if (doc) {
-    // Prefer the /preview form for Google Docs so it embeds cleanly
     const previewUrl = doc.includes("/preview") ? doc : doc.replace("/edit", "/preview");
     inner += `<iframe src=\"${previewUrl}\" class=\"w-full h-[70vh]\" loading=\"lazy\"></iframe>`;
   } else {
@@ -220,15 +166,12 @@ $("#modalClose").addEventListener("click", () => {
   $("#modal").classList.remove("flex");
 });
 
-// ===============
-// 3) LOAD SHEET
-// ===============
 function loadSheet() {
   if (!SHEET_CSV_URL || SHEET_CSV_URL.includes("PASTE_YOUR_PUBLISHED_SHEET_CSV_URL_HERE")) {
     cardsEl.innerHTML = `<div class='p-4 rounded-xl bg-yellow-50 text-yellow-900'>Configure <code>SHEET_CSV_URL</code> in the HTML to point to your published Google Sheet (CSV).</div>`;
     return;
   }
-  const bust = `&_=${Date.now()}`; // cache-bust so weekly updates appear immediately
+  const bust = `&_=${Date.now()}`;
   Papa.parse(SHEET_CSV_URL + bust, {
     download: true,
     header: true,
@@ -245,7 +188,6 @@ function loadSheet() {
 }
 
 [dateFilter, bookFilter, titleFilter, searchBox].forEach(el => el.addEventListener("input", applyFilters));
-
 loadSheet();
 </script>
 </body>
